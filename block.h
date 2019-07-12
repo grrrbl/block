@@ -41,3 +41,33 @@ PRESCALER_VALUE  256  (1<<CS02)
 PRESCALER_VALUE 1024  (1<<CS02)|(1<<CS00)
 */
 #define TC0_PRESCALER (1<<CS01)
+
+// SHIFT REGISTER OUTPUT (LEDS)
+#define LED_ERSATZSIGNAL        0x20
+#define LED_AUSFAHRSIGNAL       0x10
+#define LED_EINFAHRSIGNAL       0x80
+#define LED_ZUGANKUNFT          0x40
+#define LED_ERLAUBNIS_EMPFANGEN 0x04
+#define LED_ERLAUBNIS_GEGEBEN   0x08
+#define LED_BLOCK_EMPFANGEN     0x01
+#define LED_BLOCK_GEGEBEN       0x02
+
+// SHIFT REGISTER INPUT (KEY)
+#define KEY_ERSATZSIGNAL        0x01
+#define KEY_HILFSTASTE_BLOCK    0x02
+#define KEY_AUSFAHRSIGNAL       0x80
+#define KEY_EINFAHRSIGNAL       0x40
+#define KEY_ZUGANKUNFT          0x20
+#define KEY_ERLAUBNIS           0x10
+
+void spi_put( uint8_t val );
+void spi_sr_set();
+void spi_wait();
+void spi_init();
+
+void debounce_keys();
+uint8_t get_key_press( uint8_t key_mask );
+uint8_t get_key_rpt( uint8_t key_mask );
+uint8_t get_key_short( uint8_t key_mask );
+uint8_t get_key_long( uint8_t key_mask );
+

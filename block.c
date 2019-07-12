@@ -34,6 +34,7 @@ ISR(USI_OVF_vect){
 
 void spi_sr_set(){
     // Set data out on shift register
+    spi_wait();
     USI_OUT_REG &= ~(1<<USI_RCK_PIN);
     USI_OUT_REG |= (1<<USI_RCK_PIN);
 }
@@ -142,13 +143,11 @@ void main (void) {
     /* Init SPI */
     spi_init();
     spi_put(0xF0);
-    spi_wait();
     spi_sr_set();
-    _delay_ms(1000);
+    _delay_ms(500);
     spi_put(0x0F);
-    spi_wait();
     spi_sr_set();
-    _delay_ms(1000);
+    _delay_ms(500);
 
     /* Init other stuff */
     DDRA    |=  (1 << PA0) ;              // Ausgang
@@ -160,12 +159,8 @@ void main (void) {
         static uint8_t put = 1;
         static uint8_t count = 0;
         
-        if(usi_data & 0xF0){
-            put = 0x0F;
-            count = 255;
-        }
-        else if(usi_data & 0x0F){
-            put = 0xF0;
+        if(usi_data & 0x10){
+            put = 0x10;
             count = 255;
         }
         else if(count > 254)
