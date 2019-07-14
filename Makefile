@@ -2,12 +2,11 @@ TARGET=block
 MCU=attiny44
 SOURCES=block.c
 F_CPU = 8000000UL
-
 PROGRAMMER=usbasp
 
 #Ab hier nichts verändern
 OBJECTS=$(SOURCES:.c=.o)
-CFLAGS=-c -Os
+CFLAGS=-c -Os -Wall
 LDFLAGS=
 
 all: hex eeprom
@@ -24,6 +23,9 @@ $(TARGET)_eeprom.hex: $(TARGET).elf
 
 $(TARGET).elf: $(OBJECTS)
 	avr-gcc $(LDFLAGS) -mmcu=$(MCU) $(OBJECTS) -o $(TARGET).elf
+
+assembler: $(SOURCES)
+	avr-gcc -S $(CFLAGS) -mmcu=$(MCU) $(SOURCES) -o $(TARGET).s
 
 .c.o:
 	avr-gcc $(CFLAGS) -mmcu=$(MCU) $< -o $@
@@ -42,3 +44,4 @@ clean:
 	rm -rf *.o
 	rm -rf *.elf
 	rm -rf *.hex
+	rm -rf *.s
