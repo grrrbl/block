@@ -1,3 +1,12 @@
+#ifndef BLOCK_H
+#define BLOCK_H
+
+#include <stdint.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include <util/delay.h>
+#include <util/atomic.h>
+
 /* Manipulate bits */
 #define set_bit(var, bit) ((var) |= (1 << (bit)))
 #define clear_bit(var, bit) ((var) &= (unsigned)~(1 << (bit)))
@@ -12,11 +21,13 @@
 #define STATUS_LED_PIN			PA0
 #define BlOCK_DATA_LINE_OUT		PA1
 #define BLOCK_DATA_LINE_IN		PA2
+#define PIN_RUECKMELDER1 		PB2
 
 // USI status flags 
 #define USI_TRANSFER_COMPLETE	0
 #define USI_DEBOUNCE_KEY   		1
 #define USI_WRITE_COLLISION		2
+#define USI_RCK         		3
 #define USI_ACTIVE      		7
 
 // USI port and pin definitions.
@@ -85,3 +96,4 @@ uint8_t get_key_rpt( uint8_t key_mask );
 uint8_t get_key_short( uint8_t key_mask );
 uint8_t get_key_long( uint8_t key_mask );
 
+#endif

@@ -1,18 +1,8 @@
-#define     F_CPU   8000000UL
-
-#include <stdint.h>
-#include <avr/io.h>
-#include <avr/interrupt.h>
-#include <util/delay.h>
-#include <util/atomic.h>
 #include "block.h"
-//#include "bitio.h"
+#include "uart.h"
 
 /* SPI */
-volatile uint8_t usi_data;
-volatile uint8_t usi_status;
-volatile uint8_t slow_timer;
-volatile uint8_t fast_timer;
+volatile uint8_t usi_data, usi_status, slow_timer, fast_timer;
 
 ISR(TIM0_COMPA_vect){
     if(usi_status & (1<<USI_ACTIVE))
@@ -23,14 +13,29 @@ ISR(TIM0_COMPA_vect){
     }
 }
 
+ISR(TIM1_COMPA_vect){
+    tim1_compa_func();
+}
+
+ISR(TIM1_COMPB_vect){
+    tim1_compb_func();
+}
+
+ISR(PCINT0_vect){
+    pcint0_func();
+}
+
 ISR(USI_OVF_vect){
+    //uint8_t usi_out_reg;
 	// disable compare match interrupt to prevent more USI counter clocks.
-    usi_status &= ~(1<<USI_ACTIVE);
-    //TIMSK0 &= ~(1<<OCIE0A);
+    if (usi_status & (1<<USI_RCK))
+        USI_OUT_REG |= (1<<USI_RCK_PIN);
+        
+    usi_status = (1<<USI_TRANSFER_COMPLETE);
+    //usi_status &= ~(1<<USI_ACTIVE);
     
 	// clear usi overflow interupt flag and clear USI counter
 	USISR = (1<<USIOIF);
-    usi_status = (1<<USI_TRANSFER_COMPLETE);
 
 	// Copy USIDR to buffer to prevent overwrite on next transfer.
 	usi_data = USIDR;
@@ -39,16 +44,10 @@ ISR(USI_OVF_vect){
     USI_OUT_REG &= ~(1<<USI_PL_PIN);
 }
 
-void spi_sr_set(){
-    // Set data out on shift register
-    //if(usi_status & (1<<USI_TRANSFER_COMPLETE)){
-        USI_OUT_REG &= ~(1<<USI_RCK_PIN);
-        USI_OUT_REG |= (1<<USI_RCK_PIN);
-    //}
-}
-
 void spi_put( uint8_t val )
 {
+    static uint8_t val_ref = 0;
+
     ATOMIC_BLOCK(ATOMIC_FORCEON) {
 		if( (USISR & 0x0F) != 0 ) {
 			// Indicate write collision and return.
@@ -65,12 +64,17 @@ void spi_put( uint8_t val )
 	USIDR = val;
 
     // disable read shift register
-    USI_OUT_REG |= (1<<USI_PL_PIN);
+    USI_OUT_REG |=  (1<<USI_PL_PIN);
+    USI_OUT_REG &= ~(1<<USI_RCK_PIN);
     
 	// Master should now enable compare match interrupts.
 	//TIFR0 |= (1<<OCF0A);   // Clear compare match flag.
 	//TIMSK0 |= (1<<OCIE0A); // Enable compare match interrupt.
     ATOMIC_BLOCK(ATOMIC_FORCEON) {
+        if (val_ref != val){
+            usi_status |= (1<<USI_RCK);
+            val_ref = val;
+        }
         usi_status |= (1<<USI_ACTIVE);
     }
 }
@@ -153,35 +157,38 @@ uint8_t get_key_long( uint8_t key_mask ){
 }
 
 int main (void) {
-    sei();                              // enable interupts
-	TIMSK0 |= (1<<OCIE0A); // Enable compare match interrupt.
+    uart_init();
+    //uart_putc("c");
+    // Init PINs
+    // Ausgänge
+    DDRA |=  (1 << STATUS_LED_PIN)|(1 << BlOCK_DATA_LINE_OUT);
+    // Eingänge
+    DDRA &= ~(1 << BLOCK_DATA_LINE_IN);
+    DDRB &= ~(1 << PIN_RUECKMELDER1);
+    // Pullup / Status
+    PORTB |=  (1 << PIN_RUECKMELDER1);               
+    //PORTA   |= (1<<PA0)|(1 << BlOCK_DATA_LINE_OUT);
+
+    // enable interupts
+    sei();
+    // Enable compare match interrupt.
+	TIMSK0 |= (1<<OCIE0A);
 
     /* Init SPI and self test */
     spi_init();
+
     spi_put(0xF0);
-    spi_wait();
-    spi_sr_set();
     _delay_ms(500);
     spi_put(0x0F);
-    spi_wait();
-    spi_sr_set();
     _delay_ms(500);
     spi_put(0x00);
-    spi_wait();
-    spi_sr_set();
-
-    /* Init other stuff */
-    DDRA    |=  (1 << STATUS_LED_PIN)|(1 << BlOCK_DATA_LINE_OUT) ;              // Ausgang
-    DDRA    &= ~((1 << PB2) | (1 << BLOCK_DATA_LINE_IN));               // Eingang
-    PORTB   |=  (1 << PB2);               // Pullup
-    //PORTA   |= (1<<PA0)|(1 << BlOCK_DATA_LINE_OUT);                  // lampe an
 
     while(1){
         static uint8_t block_status = 0;
         static uint8_t led_status = 0;
-        static uint8_t led_status_ref = 0;
-        
+
         if(get_key_short(KEY_AUSFAHRSIGNAL) && block_status & BLOCK_ERLAUBNIS_EMPFANGEN){
+            uart_putc(0x55);
             led_status |= LED_AUSFAHRSIGNAL|LED_BLOCK_GEGEBEN;
             led_status &= ~LED_ERLAUBNIS_EMPFANGEN;
             block_status |= BLOCK_GEGEBEN;
@@ -196,11 +203,12 @@ int main (void) {
             led_status &= ~LED_EINFAHRSIGNAL;
 
         if(get_key_long(KEY_HILFSTASTE_BLOCK)){
+            uart_putc(0x11);
             led_status |= LED_ERLAUBNIS_EMPFANGEN;
             block_status |= BLOCK_ERLAUBNIS_EMPFANGEN;
         }
 
-        if(get_key_short(KEY_ZUGANKUNFT)){
+        if(get_key_short(KEY_ZUGANKUNFT) && block_status & BLOCK_ZUGANKUNFT){
             led_status &= ~(LED_ZUGANKUNFT | LED_BLOCK_EMPFANGEN);
             block_status &= ~(BLOCK_ZUGANKUNFT | BLOCK_EMPFANGEN);
         }
@@ -248,20 +256,23 @@ int main (void) {
         debounce_keys();
         spi_put(led_status);
         
-        // set data in outled_status register
-        if(led_status_ref != led_status)
-        {
-            spi_wait();
-            spi_sr_set();
-            led_status_ref=led_status;
-        }
-
         //testing
         if(block_status & BLOCK_ERLAUBNIS_GEGEBEN){
             block_status &= ~BLOCK_ERLAUBNIS_GEGEBEN;
             block_status |= BLOCK_EMPFANGEN;
             _delay_ms(1000);
         }
+
+        //testing
+        if(block_status & BLOCK_GEGEBEN){
+            _delay_ms(2000);
+            block_status &= ~BLOCK_GEGEBEN;
+            led_status   &= ~LED_BLOCK_GEGEBEN;
+        }
+            
+
     }
+    //_delay_ms(1000);
+
 }
 
