@@ -209,12 +209,14 @@ uint8_t uart_get_wait(){
     while( uart_status & (~(1<<UART_STATUS_RX_DONE)) ){}
     uart_status &= ~(1<<UART_STATUS_RX_DONE);
 
-    return (uint8_t)rx_data;
+    return rx_data;
 }
 
 uint8_t uart_get(){
-    if(uart_status & (1<<UART_STATUS_RX_DONE)) 
-        return (uint8_t)rx_data;
+    if(uart_status & (1<<UART_STATUS_RX_DONE)){
+        uart_status &= ~(1<<UART_STATUS_RX_DONE);
+        return rx_data;
+    }
     else
         return 0;
 }

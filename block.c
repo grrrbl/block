@@ -158,12 +158,11 @@ uint8_t get_key_long( uint8_t key_mask ){
 
 int main (void) {
     uart_init();
-    //uart_putc("c");
+
     // Init PINs
     // Ausgänge
-    DDRA |=  (1 << STATUS_LED_PIN)|(1 << BlOCK_DATA_LINE_OUT);
+    DDRA |=  (1 << STATUS_LED_PIN);
     // Eingänge
-    DDRA &= ~(1 << BLOCK_DATA_LINE_IN);
     DDRB &= ~(1 << PIN_RUECKMELDER1);
     // Pullup / Status
     PORTB |=  (1 << PIN_RUECKMELDER1);               
@@ -188,7 +187,7 @@ int main (void) {
         static uint8_t led_status = 0;
 
         if(get_key_short(KEY_AUSFAHRSIGNAL) && block_status & BLOCK_ERLAUBNIS_EMPFANGEN){
-            uart_putc(0x55);
+            uart_putc(0x01);
             led_status |= LED_AUSFAHRSIGNAL|LED_BLOCK_GEGEBEN;
             led_status &= ~LED_ERLAUBNIS_EMPFANGEN;
             block_status |= BLOCK_GEGEBEN;
@@ -203,12 +202,12 @@ int main (void) {
             led_status &= ~LED_EINFAHRSIGNAL;
 
         if(get_key_long(KEY_HILFSTASTE_BLOCK)){
-            uart_putc(0x11);
             led_status |= LED_ERLAUBNIS_EMPFANGEN;
             block_status |= BLOCK_ERLAUBNIS_EMPFANGEN;
         }
 
         if(get_key_short(KEY_ZUGANKUNFT) && block_status & BLOCK_ZUGANKUNFT){
+            uart_putc(0x0F);
             led_status &= ~(LED_ZUGANKUNFT | LED_BLOCK_EMPFANGEN);
             block_status &= ~(BLOCK_ZUGANKUNFT | BLOCK_EMPFANGEN);
         }
@@ -219,11 +218,13 @@ int main (void) {
         }
 
         if(get_key_short(KEY_ERLAUBNIS) && !(block_status & BLOCK_BELEGT)){
+            uart_putc(0x05);
             led_status |= LED_ERLAUBNIS_GEGEBEN;
             block_status |= BLOCK_ERLAUBNIS_GEGEBEN;
         }
 
         if(get_key_long(KEY_ERLAUBNIS)){
+            uart_putc(0x02);
             led_status &= ~LED_ERLAUBNIS_GEGEBEN;
             block_status &= ~BLOCK_ERLAUBNIS_GEGEBEN;
         }
@@ -237,10 +238,6 @@ int main (void) {
         else
             led_status &= ~LED_ERSATZSIGNAL;
 
-        if(block_status & BLOCK_EMPFANGEN){
-            led_status |= LED_BLOCK_EMPFANGEN;
-            led_status &= ~LED_ERLAUBNIS_GEGEBEN;
-        }
 
         if(!(PINB & (1<<PB2))){
             if(block_status & BLOCK_EMPFANGEN){
@@ -251,28 +248,36 @@ int main (void) {
                 led_status &= ~LED_AUSFAHRSIGNAL;
         }
 
+        if(block_status & BLOCK_GEGEBEN)
+            if(uart_get() == 0x0F){
+                block_status &= ~BLOCK_GEGEBEN;
+                led_status   &= ~LED_BLOCK_GEGEBEN;
+            }
+
+        uint8_t uart_rx_value;
+        uart_rx_value = uart_get();
+
+        if(uart_rx_value == 0x05){
+            led_status |= LED_ERLAUBNIS_EMPFANGEN;
+            block_status |= BLOCK_ERLAUBNIS_EMPFANGEN;
+        }
+
+        if(uart_rx_value == 0x02){
+            led_status &= ~LED_ERLAUBNIS_EMPFANGEN;
+            block_status &= ~BLOCK_ERLAUBNIS_EMPFANGEN;
+        }
+
+        if(uart_rx_value == 0x01){
+            led_status   &= ~LED_ERLAUBNIS_GEGEBEN;
+            block_status &= ~BLOCK_ERLAUBNIS_GEGEBEN;
+            block_status |= BLOCK_EMPFANGEN;
+            led_status   |= LED_BLOCK_EMPFANGEN;
+        }
+
         // debounce keys, send data
         spi_wait();
         debounce_keys();
         spi_put(led_status);
-        
-        //testing
-        if(block_status & BLOCK_ERLAUBNIS_GEGEBEN){
-            block_status &= ~BLOCK_ERLAUBNIS_GEGEBEN;
-            block_status |= BLOCK_EMPFANGEN;
-            _delay_ms(1000);
-        }
-
-        //testing
-        if(block_status & BLOCK_GEGEBEN){
-            _delay_ms(2000);
-            block_status &= ~BLOCK_GEGEBEN;
-            led_status   &= ~LED_BLOCK_GEGEBEN;
-        }
-            
-
-    }
-    //_delay_ms(1000);
-
+    } // end main loop
 }
 

@@ -1,7 +1,7 @@
 TARGET=block
 MCU=attiny44
-SOURCES=block.c
-F_CPU = 8000000UL
+SOURCES=block.c uart.c
+F_CPU=8000000UL
 PROGRAMMER=usbasp
 
 #Ab hier nichts verändern
@@ -28,7 +28,7 @@ assembler: $(SOURCES)
 	avr-gcc -S $(CFLAGS) -mmcu=$(MCU) $(SOURCES) -o $(TARGET).s
 
 .c.o:
-	avr-gcc $(CFLAGS) -mmcu=$(MCU) $< -o $@
+	avr-gcc $(CFLAGS) -DF_CPU=$(F_CPU) -mmcu=$(MCU) $< -o $@
 
 size:
 	avr-size --mcu=$(MCU) -C $(TARGET).elf
