@@ -15,7 +15,7 @@
 // Define Debounce Options
 #define REPEAT_MASK				0xFF
 //#define REPEAT_MASK				0xF0
-#define REPEAT_DELAY			40
+#define REPEAT_DELAY			100
 
 // Other Pins
 #define STATUS_LED_PIN			PA0
@@ -48,7 +48,7 @@
  *  time = (PRESCALER * (COMPAREVALUE+1) * 8) / CPUSPEED
  *     
  */
-#define TC0_COMPARE_VALUE   31	//!< Must be 0 to 255. Minimum 31 with prescaler CLK/1.
+#define TC0_COMPARE_VALUE   16	//!< Must be 0 to 255. Minimum 31 with prescaler CLK/1.
 
 /*  Prescaler value converted to bit settings.
 PRESCALER_VALUE    1  (1<<CS00)
@@ -57,7 +57,7 @@ PRESCALER_VALUE   64  (1<<CS01)|(1<<CS00)
 PRESCALER_VALUE  256  (1<<CS02)
 PRESCALER_VALUE 1024  (1<<CS02)|(1<<CS00)
 */
-#define TC0_PRESCALER (1<<CS02)
+#define TC0_PRESCALER (1<<CS01)
 
 // BLOCK STATUS BITS
 #define BLOCK_ZUGANKUNFT            0x01 //0
@@ -66,6 +66,7 @@ PRESCALER_VALUE 1024  (1<<CS02)|(1<<CS00)
 #define BLOCK_EMPFANGEN             0x08 //3
 #define BLOCK_GEGEBEN               0x10 //4
 #define BLOCK_BELEGT                0x1E
+#define BLOCK_ERSATZSIGNAL          0x20
 
 // SHIFT REGISTER OUTPUT (LEDS)
 #define LED_ERSATZSIGNAL        0x20
